@@ -8,18 +8,91 @@ output:
 
 ## Loading and preprocessing the data
 
+The source data file `activity.zip` is extracted and the contained file `activity.csv` is read into a data frame `activity` which will be used throughout the remainder of the exercise. After the data frame has been populated the extracted csv file can be removed again.
+With `str()` we verify that the read in data looks as expected.
 
+```{r}
+unzip("activity.zip")
+activity <- read.csv("activity.csv")
+time <- sprintf("%04d", activity$interval)
+time <- paste(substr(time,1,2),":", substr(time,3,4),sep="")
+activity$time <- time
+rm <- file.remove("activity.csv")
+str(activity)
+```
 
 ## What is mean total number of steps taken per day?
 
+At first, the total number of steps is aggregated per day. The following histogram shows
+that the mean total number of steps per day lies in the range of 10,000 to 15,000.
+```{r}
+steps.by.day <- aggregate(steps ~ date, data = activity, sum)
+hist(steps.by.day$steps, xlab = "Total number of steps per day", 
+     main = paste("Histogram of total number of steps per day"))
+```
 
+The exact mean and median values of the total number of steps per day are similar but not equal:
+
+```{r}
+mean(steps.by.day$steps)
+median(steps.by.day$steps)
+```
 
 ## What is the average daily activity pattern?
 
+The first step to answer this question is to group the data by the five minute intervals
+and compute the mean for each group:
+```{r}
+steps.by.interval <- aggregate(steps ~ time, data = activity, mean)
+```
 
+For a visual inspection, the following code plots a time series graph on the average daily 
+activity pattern.
+```{r}
+plot(x=as.POSIXlt(steps.by.interval$time, format="%H:%M"), 
+     y=steps.by.interval$steps, type="l",
+     xlab="Time of Day",ylab="Number of Steps per 5 Min. Interval",
+     main="Average Daily Activity Pattern")
+```
+
+One can clearly identify several spikes throughout the day and very few activity during evening and night hours. The maximum spike takes place before 9 a.m. and has an average value of more than 200 steps in five minutes. 
+
+The exact time period can be selected with the help of the `which.max()` fuction:
+```{r}
+steps.by.interval[which.max(steps.by.interval$steps), 1]
+```
+The exact number of steps for this time interval is `r max(steps.by.interval$steps)`.
 
 ## Imputing missing values
 
+For a substantial amount of five minute intervals there is no measurement for the number of steps available:
+```{r}
+sum(is.na(activity$steps))
+```
+
+The strategy to cope with these missings is to fill in the mean value for a particular time interval. 
+
+For this purpose the `mutate()` function from the `dplyr` package provides a very concise syntax. The imputed data is stored in a new data frame `imputed`.
+```{r}
+library(dplyr, warn.conflicts=FALSE)
+imputed <- activity %>%
+      mutate(steps = ifelse(is.na(steps),steps.by.interval$steps,steps))
+```
+
+A histogram plotted from the imputed data looks very similar to the previous histogram with 
+the exception that the number of days on the Y axis has increased from about 27 to about 35.
+This increment corresponds roughly to the number of imputed five minute intervals.
+```{r}
+steps.by.day <- aggregate(steps ~ date, data = imputed, sum)
+hist(steps.by.day$steps, xlab = "Total number of steps per day", 
+     main = paste("Histogram of total number of steps per day"))
+```
+
+Mean and median value are now equal and have the same value as the mean value without imputation.
+```{r}
+mean(steps.by.day$steps)
+median(steps.by.day$steps)
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
